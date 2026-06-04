@@ -71,7 +71,7 @@ class _MainNavigationState extends State<MainNavigation> {
     // =========================================================================
     // TANDA UNTUK TEMAN: Ganti widget Center ini dengan class halaman Profil asli
     // =========================================================================
-    const Center(child: Text('input.dart', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const Center(child: Text('profile.dart', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
   ];
 
   @override
