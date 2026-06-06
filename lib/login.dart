@@ -1,10 +1,10 @@
 import 'package:calorie_tracker_v2/auth_service.dart';
 import 'package:calorie_tracker_v2/dashboard.dart';
 import 'package:calorie_tracker_v2/performance.dart';
+import 'package:calorie_tracker_v2/register.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:calorie_tracker_v2/register.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,6 +16,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+
   bool _loading = false;
 
   @override
@@ -34,13 +35,18 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     final perf = Performance('Login');
+
     setState(() => _loading = true);
 
     try {
-      final res = await AuthService.login(_emailCtrl.text, _passCtrl.text);
+      final res = await AuthService.login(
+        _emailCtrl.text.trim(),
+        _passCtrl.text,
+      );
+
       perf.lap('AuthService.login');
 
-      if (res?.user != null && mounted) {
+      if (res.user != null && mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -54,16 +60,82 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         );
+
         perf.lap('navigate');
       }
     } on AuthException catch (e) {
       perf.lap('error');
-      if (mounted)
+
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      perf.lap('error');
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Login gagal: $e')));
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+
+      perf.finish();
+    }
+  }
+
+  Future<void> _loginGoogle() async {
+    final perf = Performance('Google Login');
+
+    setState(() => _loading = true);
+
+    try {
+      final res = await AuthService.signInWithGoogle();
+
+      perf.lap('AuthService.signInWithGoogle');
+
+      if (res.user != null && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const DashboardPage(
+              totalTargetKalori: 2000,
+              totalKaloriMasuk: 0,
+              totalKaloriKeluar: 0,
+              protein: 0,
+              karbohidrat: 0,
+              lemak: 0,
+            ),
+          ),
+        );
+
+        perf.lap('navigate');
+      }
+    } on AuthException catch (e) {
+      perf.lap('error');
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      perf.lap('error');
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Google login gagal: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+
       perf.finish();
     }
   }
@@ -89,13 +161,16 @@ class _LoginPageState extends State<LoginPage> {
                     child: ClipOval(
                       child: Image.asset(
                         'assets/image/logo.png',
+                        width: 140,
                         height: 140,
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 32),
+
                 Text(
                   'Selamat Datang!',
                   style: GoogleFonts.spirax(
@@ -105,7 +180,9 @@ class _LoginPageState extends State<LoginPage> {
                     fontSize: 32,
                   ),
                 ),
+
                 const SizedBox(height: 128),
+
                 Text(
                   'Silakan Masuk.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -114,7 +191,9 @@ class _LoginPageState extends State<LoginPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 const SizedBox(height: 32),
+
                 _cardForm(),
               ],
             ),
@@ -150,7 +229,9 @@ class _LoginPageState extends State<LoginPage> {
           style: GoogleFonts.inter(color: Colors.white),
           keyboardType: TextInputType.emailAddress,
         ),
+
         const SizedBox(height: 16),
+
         TextField(
           controller: _passCtrl,
           decoration: InputDecoration(
@@ -174,19 +255,20 @@ class _LoginPageState extends State<LoginPage> {
           style: GoogleFonts.inter(color: Colors.white),
           obscureText: true,
         ),
+
         const SizedBox(height: 128),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Belum Punya Akun?',
+              'Belum Punya Akun? ',
               style: GoogleFonts.inter(color: Colors.black, fontSize: 14),
             ),
             GestureDetector(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => RegisterPage()),
+                MaterialPageRoute(builder: (_) => const RegisterPage()),
               ),
               child: Text(
                 'Buat Disini',
@@ -201,7 +283,9 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ],
         ),
+
         const SizedBox(height: 20),
+
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -225,6 +309,33 @@ class _LoginPageState extends State<LoginPage> {
                   ),
           ),
         ),
+
+        const SizedBox(height: 12),
+
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: OutlinedButton.icon(
+            onPressed: _loading ? null : _loginGoogle,
+            icon: const Icon(Icons.g_mobiledata, size: 32),
+            label: Text(
+              'Masuk dengan Google',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.black,
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Colors.black12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+
         const SizedBox(height: 20),
       ],
     );
