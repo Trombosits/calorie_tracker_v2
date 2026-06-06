@@ -17,7 +17,8 @@ class AuthService {
 
   static Future<AuthResponse> signInWithGoogle() async {
     // TODO: Ganti dengan Web Client ID dari Google Cloud
-    const webClientId = 'ISI_WEB_CLIENT_ID_KAMU.apps.googleusercontent.com';
+    const webClientId =
+        '525250997907-7lb4fpp0e4u74ev1b2kubsa3i4ptig8p.apps.googleusercontent.com';
 
     const scopes = <String>['email', 'profile'];
 
