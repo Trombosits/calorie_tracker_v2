@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:calorie_tracker_v2/login.dart';
+import 'package:calorie_tracker_v2/main.dart'; // Pastikan AuthGate() ada di sini
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -29,7 +30,7 @@ class _RegisterPageState extends State<RegisterPage> {
   int _currentStep = 0;
   bool _loading = false;
   DateTime? _selectedDate;
-  String _selectedMode = 'Maintenance';
+  String _selectedMode = 'Maintenance'; // Default awal
 
   /* ---------- CALCULATED ---------- */
   double _bmi = 0;
@@ -196,18 +197,16 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       if (authRes.user == null) throw Exception('Gagal membuat akun');
 
-      // tentukan mode & kalori target
-      String mode;
-      int kaloriTarget;
-      if (_tdee <= 2000) {
+      // PERBAIKAN: Tentukan mode dan kalori berdasarkan pilihan nyata dari UI user
+      String mode = 'maintenance';
+      int kaloriTarget = _maintenance;
+
+      if (_selectedMode == 'Deficit (Cutting)') {
         mode = 'cutting';
         kaloriTarget = _deficit;
-      } else if (_tdee >= 2700) {
+      } else if (_selectedMode == 'Surplus (Bulking)') {
         mode = 'bulking';
         kaloriTarget = _surplus;
-      } else {
-        mode = 'maintenance';
-        kaloriTarget = _maintenance;
       }
 
       await supabase.from('users').insert({
@@ -228,15 +227,15 @@ class _RegisterPageState extends State<RegisterPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Registrasi berhasil! Silakan verifikasi email terlebih dahulu.',
-            ),
+            content: Text('Registrasi berhasil! Selamat datang di LangsingIn.'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pushReplacement(
+        
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
+          MaterialPageRoute(builder: (_) => const AuthGate()),
+          (route) => false,
         );
       }
     } catch (e) {
@@ -521,27 +520,28 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildActivityBoxStep() {
+    // PERBAIKAN: Menggunakan struktur List Map untuk menghindari error sintaks Record Dart.
     final options = [
-      (
-        'Rendah',
-        'Sebagian besar waktu duduk dan jarang bergerak. Hampir tidak pernah olahraga.',
-      ),
-      (
-        'Ringan',
-        'Ada sedikit aktivitas fisik harian atau olahraga ringan 1-3 kali seminggu.',
-      ),
-      (
-        'Sedang',
-        'Rutin olahraga 3-5 kali seminggu atau pekerjaan yang cukup banyak gerak.',
-      ),
-      (
-        'Berat',
-        'Latihan intens hampir setiap hari atau pekerjaan fisik yang berat.',
-      ),
-      (
-        'Sangat Berat',
-        'Latihan sangat intens setiap hari atau kerja fisik berat sepanjang hari.',
-      ),
+      {
+        'title': 'Rendah',
+        'desc': 'Sebagian besar waktu duduk dan jarang bergerak. Hampir tidak pernah olahraga.',
+      },
+      {
+        'title': 'Ringan',
+        'desc': 'Ada sedikit aktivitas fisik harian atau olahraga ringan 1-3 kali seminggu.',
+      },
+      {
+        'title': 'Sedang',
+        'desc': 'Rutin olahraga 3-5 kali seminggu atau pekerjaan yang cukup banyak gerak.',
+      },
+      {
+        'title': 'Berat',
+        'desc': 'Latihan intens hampir setiap hari atau pekerjaan fisik yang berat.',
+      },
+      {
+        'title': 'Sangat Berat',
+        'desc': 'Latihan sangat intens setiap hari atau kerja fisik berat sepanjang hari.',
+      },
     ];
 
     return _cardForm([
@@ -555,7 +555,7 @@ class _RegisterPageState extends State<RegisterPage> {
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 14),
-      ...options.map((o) => _activityBox(o.$1, o.$2)).toList(),
+      ...options.map((o) => _activityBox(o['title']!, o['desc']!)).toList(),
       const SizedBox(height: 22),
     ]);
   }
@@ -571,7 +571,7 @@ class _RegisterPageState extends State<RegisterPage> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Color(0XFFFDE4C6), // bg abu muda
+            color: const Color(0XFFFDE4C6), // bg abu muda
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected
@@ -594,9 +594,9 @@ class _RegisterPageState extends State<RegisterPage> {
               const SizedBox(height: 4),
               Text(
                 desc,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
-                  color: isSelected ? Colors.black : Colors.black,
+                  color: Colors.black,
                 ),
               ),
             ],
@@ -615,10 +615,10 @@ class _RegisterPageState extends State<RegisterPage> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.12) : Color(0XFFFFB669),
+          color: isSelected ? color.withOpacity(0.12) : const Color(0XFFFFB669),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? color : Color(0XFFFFB669),
+            color: isSelected ? color : const Color(0XFFFFB669),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -668,7 +668,7 @@ class _RegisterPageState extends State<RegisterPage> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
-          color: Color(0XFFFDE4c6), // latar belakang
+          color: const Color(0XFFFDE4C6), // latar belakang
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.black),
         ),
@@ -679,27 +679,6 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
       ),
     ]);
-  }
-
-  Widget _choiceChip(String label, int value, Color color) {
-    final isSelected = _selectedMode == label;
-    return ChoiceChip(
-      label: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12)),
-          Text(
-            '${value.toStringAsFixed(0)} kcal',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-      selected: isSelected,
-      onSelected: (val) => setState(() => _selectedMode = label),
-      selectedColor: color.withOpacity(.25),
-      backgroundColor: Colors.grey[200],
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-    );
   }
 
   Widget _buildFinalFormStep() {

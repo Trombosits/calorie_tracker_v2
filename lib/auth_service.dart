@@ -42,7 +42,7 @@ class AuthService {
     }
 
     if (accessToken == null) {
-      throw const AuthException('Google Access Token tidak ditemukan');
+      throw const AuthException('Google Access Token tidak ditemukan'); 
     }
 
     return await supabase.auth.signInWithIdToken(
