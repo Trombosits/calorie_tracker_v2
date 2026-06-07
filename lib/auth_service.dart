@@ -15,8 +15,8 @@ class AuthService {
     return await supabase.auth.signUp(email: email.trim(), password: password);
   }
 
+  // Dipakai untuk Android/native, bukan untuk Flutter Web
   static Future<AuthResponse> signInWithGoogle() async {
-    // TODO: Ganti dengan Web Client ID dari Google Cloud
     const webClientId =
         '525250997907-7lb4fpp0e4u74ev1b2kubsa3i4ptig8p.apps.googleusercontent.com';
 
@@ -42,7 +42,7 @@ class AuthService {
     }
 
     if (accessToken == null) {
-      throw const AuthException('Google Access Token tidak ditemukan'); 
+      throw const AuthException('Google Access Token tidak ditemukan');
     }
 
     return await supabase.auth.signInWithIdToken(
