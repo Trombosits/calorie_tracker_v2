@@ -333,7 +333,7 @@ class _HalamanUtama extends State<HalamanUtama>
                         }
                     },
                     child: Scaffold(
-                        backgroundColor: const Color.fromARGB(255, 129, 65, 2),
+                        backgroundColor: Colors.white,
                         appBar: AppBar(
                             automaticallyImplyLeading: false,
                             backgroundColor: Colors.transparent,
@@ -356,7 +356,6 @@ class _HalamanUtama extends State<HalamanUtama>
                                 _buildTabAktivitas(),
                             ],
                         ),
-
                         bottomNavigationBar: SafeArea(
                             child: Padding(
                                 padding: const EdgeInsets.all(16),
@@ -379,6 +378,7 @@ class _HalamanUtama extends State<HalamanUtama>
                                 ),
                             )
                         ),
+
                     ),
                 );
             }

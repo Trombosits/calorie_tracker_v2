@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login.dart';
+import 'laporan_kalori.dart';
 
 // Import ini harus mengarah persis ke lokasi file theme Anda
 import 'theme.dart';
@@ -21,6 +22,9 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoading = true;
   // Cache buster untuk paksa Flutter refresh gambar avatar
   String _avatarCacheBuster = '';
+
+  // Konstanta Warna Dashboard
+  static const Color _primaryColor = Color(0xFFFA6623);
 
   /* ---------- LIFE-CYCLE ---------- */
   @override
@@ -47,7 +51,6 @@ class _ProfilePageState extends State<ProfilePage> {
         }); 
       }
     } catch (e) {
-      // Menambahkan log ini agar kita tahu jika proses load data pertama gagal
       debugPrint('Error Load Profile: $e'); 
       if (mounted) setState(() => _isLoading = false);
     }
@@ -57,47 +60,39 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _pickAndUploadAvatar() async {
     final picker = ImagePicker();
     try {
-      // Membuka galeri untuk memilih gambar
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 50, // Kompres kualitas gambar agar ukurannya ringan
+        imageQuality: 50,
       );
 
-      if (image == null) return; // User membatalkan pemilihan foto
+      if (image == null) return; 
 
       setState(() => _isLoading = true);
 
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      // SOLUSI: Baca gambar dalam bentuk Bytes (bukan File lintasan lokal)
       final Uint8List imageBytes = await image.readAsBytes();
       final fileExt = image.path.split('.').last;
       
-      // Membuat nama file unik berdasarkan ID User dan Timestamp
       final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      // 1. Upload data biner ke Supabase Storage Bucket bernama 'avatars'
       await supabase.storage.from('avatars').uploadBinary(
             fileName,
             imageBytes,
             fileOptions: const FileOptions(upsert: false),
           );
 
-      // 2. Ambil URL Publik dari foto yang sukses di-upload
       final String imageUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
 
-      // 3. Update kolom avatar_url di tabel 'users' Supabase Database
       await supabase
           .from('users')
           .update({'avatar_url': imageUrl})
           .eq('id_user', user.id);
 
       if (mounted) {
-        // Evict cache dengan URL yang sama persis seperti yang dipakai di widget
         final oldAvatarUrl = _userRow?['avatar_url'];
         if (oldAvatarUrl != null) {
-          // Evict URL dengan cache buster lama (sama persis seperti di NetworkImage)
           NetworkImage('$oldAvatarUrl?cb=$_avatarCacheBuster').evict();
         }
 
@@ -107,7 +102,6 @@ class _ProfilePageState extends State<ProfilePage> {
           if (_userRow != null) {
             _userRow!['avatar_url'] = imageUrl;
           } else {
-            // PERBAIKAN BUG: Jika data profil awal gagal load, kita paksa buat agar foto tidak abu-abu!
             _userRow = {'avatar_url': imageUrl};
           }
           _avatarCacheBuster = cacheBuster;
@@ -177,6 +171,7 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       }
     } catch (e) {
+      debugPrint('Error Update Target: $e');
     }
   }
 
@@ -187,7 +182,7 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         const Text(
           'Target Kalori Harian',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
@@ -207,14 +202,24 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _modeChip(String mode, String label) {
     final currentMode = _userRow?['target_mode'] ?? 'maintenance';
     final isSelected = currentMode == mode;
-    final primaryColor = Theme.of(context).colorScheme.primary;
     
     return ChoiceChip(
-      label: Text(label),
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.white : Colors.black87,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
       selected: isSelected,
       onSelected: (_) => _updateTargetMode(mode),
-      selectedColor: primaryColor.withValues(alpha: 0.25),
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      selectedColor: _primaryColor,
+      backgroundColor: Colors.grey[100],
+      showCheckmark: false,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isSelected ? _primaryColor : Colors.grey[300]!),
+      ),
     );
   }
 
@@ -226,8 +231,9 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return Padding(
@@ -261,10 +267,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 24),
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Nama Lengkap',
-                    prefixIcon: Icon(Icons.person_outline),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.person_outline, color: _primaryColor),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: _primaryColor, width: 2),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -272,10 +282,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   enabled: false,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -303,6 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           });
                         }
                       } catch (e) {
+                        debugPrint('Error Update Name: $e');
                       }
                     }
 
@@ -316,14 +327,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   icon: const Icon(Icons.save),
                   label: const Text('Simpan Perubahan'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    backgroundColor: _primaryColor,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(ctx),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    foregroundColor: Colors.black54,
+                  ),
                   child: const Text('Batal'),
                 ),
               ],
@@ -336,11 +352,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _EditSettingSheet(BuildContext context) {
     final List<Map<String, dynamic>> themeColors = [
+      {'name': 'Oranye (Default)', 'color': _primaryColor},
       {'name': 'Ungu', 'color': Colors.deepPurple},
       {'name': 'Hijau Toska', 'color': Colors.teal},
       {'name': 'Merah Mawar', 'color': Colors.pink},
       {'name': 'Biru Samudra', 'color': Colors.blue},
-      {'name': 'Oranye (Default)', 'color': const Color(0xFFFF5A16)},
       {'name': 'Hijau Zamrud', 'color': Colors.green},
     ];
 
@@ -348,8 +364,9 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return ListenableBuilder(
@@ -486,9 +503,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
+      return const Scaffold(
+        backgroundColor: Colors.white,
         body: Center(
-          child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+          child: CircularProgressIndicator(color: _primaryColor),
         ),
       );
     }
@@ -499,6 +517,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final avatarUrl = _userRow?['avatar_url'];
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -510,16 +529,15 @@ class _ProfilePageState extends State<ProfilePage> {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // Lingkaran Foto Profil
                   Container(
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.grey[400],
+                      color: Colors.grey[300],
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -536,7 +554,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         : null,
                   ),
                   
-                  // Badge Tombol Edit Foto Profil
                   Positioned(
                     bottom: 0,
                     right: 0,
@@ -545,10 +562,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary, 
+                          color: _primaryColor, 
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Theme.of(context).scaffoldBackgroundColor, 
+                            color: Colors.white, 
                             width: 4,
                           ),
                         ),
@@ -562,9 +579,9 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 24),
               
               // 2. Bagian Label Nama & Email (Bentuk Pil)
-              _infoPill(displayName, Theme.of(context).colorScheme.primary),
+              _infoPill(displayName, _primaryColor),
               const SizedBox(height: 8),
-              _infoPill(email, Theme.of(context).colorScheme.primary),
+              _infoPill(email, const Color(0xFF8A7773)), // Warna sekunder netral dari dashboard kalori keluar
               
               const SizedBox(height: 24),
             ],
@@ -573,25 +590,29 @@ class _ProfilePageState extends State<ProfilePage> {
           _targetSelector(),
 
           const SizedBox(height: 24),
+
+          const LaporanKaloriChart(),
+          const SizedBox(height: 24),
+
           _menuTile(
-            Icons.edit,
+            Icons.edit_outlined,
             'Edit Profile',
             onTap: () => _EditProfileSheet(context, displayName, email),
           ),
           _divider(),
           _menuTile(
-            Icons.build,
+            Icons.settings_outlined,
             'Pengaturan',
             onTap: () => _EditSettingSheet(context),
           ),
           _divider(),
           _menuTile(
-            Icons.help, 
+            Icons.help_outline_rounded, 
             'Bantuan', 
             onTap: () => _comingSoon(),
           ),
           _divider(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -599,9 +620,11 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: const Icon(Icons.logout),
               label: const Text('Logout'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
               ),
             ),
           ),
@@ -614,44 +637,45 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _menuTile(IconData icon, String title, {VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: Colors.black87),
-      title: Text(title, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+      title: Text(title, style: const TextStyle(fontSize: 15, color: Colors.black87, fontWeight: FontWeight.w500)),
       trailing: const Icon(Icons.chevron_right, color: Colors.black54),
       dense: true,
       onTap: onTap,
     );
   }
 
-  Widget _divider() => const Divider(height: 0, thickness: .5);
+  Widget _divider() => Divider(height: 0, thickness: .5, color: Colors.grey[200]);
 
   void _comingSoon() => ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Coming soon!')),
       );
 } 
 
-  Widget _infoPill(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(30), 
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 4,
-            offset: const Offset(0, 2), 
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
+Widget _infoPill(String text, Color color) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(30), 
+      boxShadow: [
+        BoxShadow(
+          color: color.withValues(alpha: 0.2),
+          blurRadius: 6,
+          offset: const Offset(0, 3), 
         ),
+      ],
+    ),
+    child: Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
       ),
-    );
-  }
+    ),
+  );
+}
 
 /* extension agar .capitalize() tersedia */
 extension StringExt on String {
