@@ -66,10 +66,17 @@ class _LoginPageState extends State<LoginPage> {
     } on AuthException catch (e) {
       perf.lap('error');
 
+      String message = e.message;
+
+      if (e.message.toLowerCase().contains('invalid login credentials')) {
+        message =
+            'Akun ini terdaftar menggunakan Google. Silakan masuk dengan Google.';
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       perf.lap('error');
