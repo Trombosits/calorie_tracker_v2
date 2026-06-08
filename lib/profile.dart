@@ -1,12 +1,12 @@
-import 'dart:typed_data'; // Menggunakan Uint8List agar aman di Web & Mobile
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login.dart';
-import 'laporan_kalori.dart';
+import 'package:calorie_tracker_v2/login.dart';
+import 'package:calorie_tracker_v2/laporan_kalori.dart';
 
-// Import ini harus mengarah persis ke lokasi file theme Anda
-import 'theme.dart';
+
+import 'package:calorie_tracker_v2/theme.dart';
 
 final supabase = Supabase.instance.client;
 
