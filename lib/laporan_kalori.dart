@@ -50,50 +50,73 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
         _targetKalori = (userRow['target_kalori'] as num).toDouble();
       }
 
-    
       final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day); // Normalisasi jam ke 00:00
    
-      final startOfThisWeek = now.subtract(Duration(days: now.weekday - 1)); 
-      final endOfThisWeek = startOfThisWeek.add(const Duration(days: 6, hours: 23, minutes: 59));
+      // === PENGATURAN GRAFIK HARIAN (Minggu Berjalan) ===
+      final startOfThisWeek = today.subtract(Duration(days: today.weekday - 1)); 
+      final endOfThisWeek = startOfThisWeek.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
       
+      // === PENGATURAN GRAFIK MINGGUAN (Bulan Berjalan Kalender) ===
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final nextMonth = DateTime(now.year, now.month + 1, 1);
+      final endOfMonth = nextMonth.subtract(const Duration(seconds: 1));
 
-      final startOf4WeeksAgo = startOfThisWeek.subtract(const Duration(days: 21)); 
+      // Ambil batas query terluas untuk mengakomodasi Harian & Mingguan
+      final queryStart = startOfThisWeek.isBefore(startOfMonth) ? startOfThisWeek : startOfMonth;
+      final queryEnd = endOfThisWeek.isAfter(endOfMonth) ? endOfThisWeek : endOfMonth;
 
-
+      // Ambil data dari tabel laporan_harian
       final response = await _supabase
-        .from('laporan_harian') // 1. UBAH DARI 'makanan' JADI 'laporan_harian'
-        .select('tanggal, total_kalori_in') // 2. UBAH NAMA KOLOM KALORI-NYA
-        .eq('id_user', user.id)
-        .gte('tanggal', startOf4WeeksAgo.toIso8601String())
-        .lte('tanggal', endOfThisWeek.toIso8601String());
+          .from('laporan_harian')
+          .select('tanggal, total_kalori_in')
+          .eq('id_user', user.id)
+          .gte('tanggal', queryStart.toIso8601String())
+          .lte('tanggal', queryEnd.toIso8601String());
 
- 
       List<double> tempHarian = List.filled(7, 0.0);
       List<double> tempMingguan = List.filled(4, 0.0);
+      
+      // Menghitung jumlah hari di masing-masing blok minggu kalender untuk pembagi rata-rata
+      List<int> daysInWeekBlock = [7, 7, 7, 7]; 
+      int totalDaysInMonth = DateTime(now.year, now.month + 1, 0).day;
+      daysInWeekBlock[3] = totalDaysInMonth - 21; // Sisa hari di minggu ke-4 (bisa 9 atau 10 hari)
 
-   
       for (var item in response) {
         final date = DateTime.parse(item['tanggal']);
-        final kalori = (item['total_kalori_in'] as num).toDouble();
+        final kalori = (item['total_kalori_in'] as num?)?.toDouble() ?? 0.0;
 
-      
+        // 1. LOGIKA GRAFIK HARIAN
         if (date.isAfter(startOfThisWeek.subtract(const Duration(seconds: 1))) && 
             date.isBefore(endOfThisWeek.add(const Duration(seconds: 1)))) {
           final dayIndex = date.weekday - 1; 
           tempHarian[dayIndex] += kalori;
         }
 
-       
-        final differenceInDays = date.difference(startOf4WeeksAgo).inDays;
-        if (differenceInDays >= 0 && differenceInDays < 28) {
-          final weekIndex = differenceInDays ~/ 7; // 0, 1, 2, 3
+        // 2. LOGIKA GRAFIK MINGGUAN (Bulan Kalender Ini)
+        if (date.year == now.year && date.month == now.month) {
+          final dayOfMonth = date.day;
+          int weekIndex = 0;
+
+          if (dayOfMonth <= 7) {
+            weekIndex = 0; // Minggu 1 (Tanggal 1 - 7)
+          } else if (dayOfMonth <= 14) {
+            weekIndex = 1; // Minggu 2 (Tanggal 8 - 14)
+          } else if (dayOfMonth <= 21) {
+            weekIndex = 2; // Minggu 3 (Tanggal 15 - 21)
+          } else {
+            weekIndex = 3; // Minggu 4 (Tanggal 22 - Akhir Bulan)
+          }
+
           tempMingguan[weekIndex] += kalori;
         }
       }
 
-
+      // Hitung nilai rata-rata harian untuk setiap blok minggu kalender
       for (int i = 0; i < 4; i++) {
-        tempMingguan[i] = tempMingguan[i] / 7; 
+        if (tempMingguan[i] > 0) {
+          tempMingguan[i] = tempMingguan[i] / daysInWeekBlock[i]; 
+        }
       }
 
       _kaloriHarian = tempHarian;
