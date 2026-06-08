@@ -262,7 +262,7 @@ class _LoginPageState extends State<LoginPage> {
         ],
       ),
       child: ClipOval(
-        child: Image.asset('assets/image/logo.png', fit: BoxFit.cover),
+        child: Image.asset('assets/image/appIcon.png', fit: BoxFit.cover),
       ),
     );
   }

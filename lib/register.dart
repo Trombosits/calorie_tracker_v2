@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:calorie_tracker_v2/login.dart';
-import 'package:calorie_tracker_v2/navbar.dart';
+import 'login.dart';
+import 'navbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
