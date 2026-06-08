@@ -18,7 +18,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   /* ---------- DATA USER ---------- */
-  Map<String, dynamic>? _userRow; 
+  Map<String, dynamic>? _userRow;
   bool _isLoading = true;
   // Cache buster untuk paksa Flutter refresh gambar avatar
   String _avatarCacheBuster = '';
@@ -30,7 +30,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadProfileData(); 
+    _loadProfileData();
   }
 
   Future<void> _loadProfileData() async {
@@ -48,10 +48,10 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _userRow = row;
           _isLoading = false;
-        }); 
+        });
       }
     } catch (e) {
-      debugPrint('Error Load Profile: $e'); 
+      debugPrint('Error Load Profile: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -65,7 +65,7 @@ class _ProfilePageState extends State<ProfilePage> {
         imageQuality: 50,
       );
 
-      if (image == null) return; 
+      if (image == null) return;
 
       setState(() => _isLoading = true);
 
@@ -74,16 +74,21 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final Uint8List imageBytes = await image.readAsBytes();
       final fileExt = image.path.split('.').last;
-      
-      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      await supabase.storage.from('avatars').uploadBinary(
+      final fileName =
+          '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      await supabase.storage
+          .from('avatars')
+          .uploadBinary(
             fileName,
             imageBytes,
             fileOptions: const FileOptions(upsert: false),
           );
 
-      final String imageUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
+      final String imageUrl = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
 
       await supabase
           .from('users')
@@ -107,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _avatarCacheBuster = cacheBuster;
           _isLoading = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Foto profil berhasil diperbarui!')),
         );
@@ -126,9 +131,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _logout(BuildContext context) async {
     await supabase.auth.signOut();
     if (context.mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
     }
   }
 
@@ -150,10 +155,10 @@ class _ProfilePageState extends State<ProfilePage> {
         _ => tdee.round(),
       };
 
-      await supabase.from('users').update({
-        'target_mode': newMode,
-        'target_kalori': newTarget,
-      }).eq('id_user', user.id);
+      await supabase
+          .from('users')
+          .update({'target_mode': newMode, 'target_kalori': newTarget})
+          .eq('id_user', user.id);
 
       await supabase.auth.updateUser(
         UserAttributes(data: {'target_mode': newMode}),
@@ -165,9 +170,11 @@ class _ProfilePageState extends State<ProfilePage> {
             _userRow!['target_mode'] = newMode;
             _userRow!['target_kalori'] = newTarget;
           }
-        }); 
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Target diubah menjadi ${newMode.capitalize()}')),
+          SnackBar(
+            content: Text('Target diubah menjadi ${newMode.capitalize()}'),
+          ),
         );
       }
     } catch (e) {
@@ -182,7 +189,11 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         const Text(
           'Target Kalori Harian',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
@@ -202,7 +213,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _modeChip(String mode, String label) {
     final currentMode = _userRow?['target_mode'] ?? 'maintenance';
     final isSelected = currentMode == mode;
-    
+
     return ChoiceChip(
       label: Text(
         label,
@@ -223,7 +234,11 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _EditProfileSheet(BuildContext context, String displayName, String email) {
+  void _EditProfileSheet(
+    BuildContext context,
+    String displayName,
+    String email,
+  ) {
     final nameController = TextEditingController(text: displayName);
     final emailController = TextEditingController(text: email);
 
@@ -269,11 +284,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   controller: nameController,
                   decoration: InputDecoration(
                     labelText: 'Nama Lengkap',
-                    prefixIcon: const Icon(Icons.person_outline, color: _primaryColor),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(
+                      Icons.person_outline,
+                      color: _primaryColor,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: _primaryColor, width: 2),
+                      borderSide: const BorderSide(
+                        color: _primaryColor,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -285,7 +308,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: InputDecoration(
                     labelText: 'Email',
                     prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -297,10 +322,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     final user = supabase.auth.currentUser;
                     if (user != null) {
                       try {
-                        await supabase.from('users')
+                        await supabase
+                            .from('users')
                             .update({'nama_lengkap': newName})
                             .eq('id_user', user.id);
-                        
+
                         await supabase.auth.updateUser(
                           UserAttributes(data: {'nama_lengkap': newName}),
                         );
@@ -320,7 +346,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (ctx.mounted) {
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profil berhasil diperbarui')),
+                        const SnackBar(
+                          content: Text('Profil berhasil diperbarui'),
+                        ),
                       );
                     }
                   },
@@ -330,14 +358,18 @@ class _ProfilePageState extends State<ProfilePage> {
                     backgroundColor: _primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(ctx),
                   style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     foregroundColor: Colors.black54,
                   ),
                   child: const Text('Batal'),
@@ -392,12 +424,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      Icon(Icons.palette, color: selectedPreviewColor, size: 28),
+                      Icon(
+                        Icons.palette,
+                        color: selectedPreviewColor,
+                        size: 28,
+                      ),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
                           'Ubah Tema Warna',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -405,21 +444,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 6),
                   Text(
                     'Pilih warna tema yang kamu suka. Fitur ubah warna akan tersedia segera.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 24),
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 2.8,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 2.8,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                     itemCount: themeColors.length,
                     itemBuilder: (context, index) {
                       final item = themeColors[index];
@@ -456,7 +493,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: isSelected
-                                    ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 20,
+                                      )
                                     : null,
                               ),
                               const SizedBox(width: 12),
@@ -465,7 +506,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                   name,
                                   style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
                                     color: isSelected ? color : Colors.black87,
                                   ),
                                 ),
@@ -485,7 +528,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       icon: const Icon(Icons.lock_clock_outlined),
                       label: const Text(
                         'Coming Soon',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
                         disabledBackgroundColor: Colors.grey[300],
@@ -537,11 +583,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 24),
                 const Row(
                   children: [
-                    Icon(Icons.menu_book_outlined, color: _primaryColor, size: 28),
+                    Icon(
+                      Icons.menu_book_outlined,
+                      color: _primaryColor,
+                      size: 28,
+                    ),
                     SizedBox(width: 12),
                     Text(
                       'Panduan Penggunaan',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -578,7 +631,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     backgroundColor: _primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     elevation: 0,
                   ),
                   child: const Text(
@@ -616,12 +671,19 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.35),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -637,26 +699,27 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(color: _primaryColor),
-        ),
+        body: Center(child: CircularProgressIndicator(color: _primaryColor)),
       );
     }
 
     final user = supabase.auth.currentUser;
-    final displayName = _userRow?['nama_lengkap'] ?? user?.userMetadata?['nama_lengkap'] ?? 'Pengguna';
+    final displayName =
+        _userRow?['nama_lengkap'] ??
+        user?.userMetadata?['nama_lengkap'] ??
+        'Pengguna';
     final email = user?.email ?? '-';
     final avatarUrl = _userRow?['avatar_url'];
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 140),
         children: [
           Column(
             children: [
               const SizedBox(height: 12),
-              
+
               // 1. Bagian Foto Profil (Avatar + Icon Edit)
               Stack(
                 clipBehavior: Clip.none,
@@ -676,16 +739,22 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                       image: avatarUrl != null
                           ? DecorationImage(
-                              image: NetworkImage('$avatarUrl?cb=$_avatarCacheBuster'),
+                              image: NetworkImage(
+                                '$avatarUrl?cb=$_avatarCacheBuster',
+                              ),
                               fit: BoxFit.cover,
                             )
                           : null,
                     ),
                     child: avatarUrl == null
-                        ? const Icon(Icons.person, size: 80, color: Colors.white)
+                        ? const Icon(
+                            Icons.person,
+                            size: 80,
+                            color: Colors.white,
+                          )
                         : null,
                   ),
-                  
+
                   Positioned(
                     bottom: 0,
                     right: 0,
@@ -694,27 +763,31 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: _primaryColor, 
+                          color: _primaryColor,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white, 
-                            width: 4,
-                          ),
+                          border: Border.all(color: Colors.white, width: 4),
                         ),
-                        child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // 2. Bagian Label Nama & Email (Bentuk Pil)
               _infoPill(displayName, _primaryColor),
               const SizedBox(height: 8),
-              _infoPill(email, const Color(0xFF8A7773)), // Warna sekunder netral dari dashboard kalori keluar
-              
+              _infoPill(
+                email,
+                const Color(0xFF8A7773),
+              ), // Warna sekunder netral dari dashboard kalori keluar
+
               const SizedBox(height: 24),
             ],
           ),
@@ -755,7 +828,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 0,
               ),
             ),
@@ -769,28 +844,35 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _menuTile(IconData icon, String title, {VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: Colors.black87),
-      title: Text(title, style: const TextStyle(fontSize: 15, color: Colors.black87, fontWeight: FontWeight.w500)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 15,
+          color: Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
       trailing: const Icon(Icons.chevron_right, color: Colors.black54),
       dense: true,
       onTap: onTap,
     );
   }
 
-  Widget _divider() => Divider(height: 0, thickness: .5, color: Colors.grey[200]);
-
-} 
+  Widget _divider() =>
+      Divider(height: 0, thickness: .5, color: Colors.grey[200]);
+}
 
 Widget _infoPill(String text, Color color) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
     decoration: BoxDecoration(
       color: color,
-      borderRadius: BorderRadius.circular(30), 
+      borderRadius: BorderRadius.circular(30),
       boxShadow: [
         BoxShadow(
           color: color.withValues(alpha: 0.2),
           blurRadius: 6,
-          offset: const Offset(0, 3), 
+          offset: const Offset(0, 3),
         ),
       ],
     ),
