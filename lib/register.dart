@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:calorie_tracker_v2/login.dart';
-import 'package:calorie_tracker_v2/main.dart'; // Pastikan AuthGate() ada di sini
+import 'package:calorie_tracker_v2/navbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
 final supabase = Supabase.instance.client;
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final bool isGoogleSetup;
+
+  const RegisterPage({super.key, this.isGoogleSetup = false});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -45,6 +47,32 @@ class _RegisterPageState extends State<RegisterPage> {
   /* ---------- NAMA DEPAN UNTUK STEP 1 ---------- */
   String _namaDepan = '';
 
+  int get _lastStep => widget.isGoogleSetup ? 5 : 6;
+  int get _stepCount => widget.isGoogleSetup ? 6 : 7;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.isGoogleSetup) {
+      final user = supabase.auth.currentUser;
+      final metadata = user?.userMetadata ?? {};
+      final googleName = (metadata['full_name'] ?? metadata['name'] ?? '')
+          .toString()
+          .trim();
+      final googleEmail = user?.email ?? '';
+
+      if (googleName.isNotEmpty) {
+        _firstNameCtrl.text = googleName.split(' ').first;
+        _namaDepan = _firstNameCtrl.text;
+      }
+
+      if (googleEmail.isNotEmpty) {
+        _emailCtrl.text = googleEmail;
+      }
+    }
+  }
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -61,7 +89,7 @@ class _RegisterPageState extends State<RegisterPage> {
   void _nextStep() {
     if (!_validateCurrentStep()) return;
     if (_currentStep == 0) _namaDepan = _firstNameCtrl.text.trim();
-    if (_currentStep < 6) {
+    if (_currentStep < _lastStep) {
       setState(() => _currentStep++);
       if (_currentStep == 5) _calculateCalories();
     }
@@ -71,6 +99,10 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
     } else {
+      if (widget.isGoogleSetup) {
+        supabase.auth.signOut();
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -103,10 +135,11 @@ class _RegisterPageState extends State<RegisterPage> {
         if (_activityLevel == null) error = 'Level aktivitas harus dipilih!';
         break;
       case 6:
-        if (_emailCtrl.text.isEmpty ||
+        if (!widget.isGoogleSetup &&
+            (_emailCtrl.text.isEmpty ||
             _usernameCtrl.text.isEmpty ||
             _passCtrl.text.isEmpty ||
-            _passCtrl.text.length < 6) {
+            _passCtrl.text.length < 6)) {
           error = 'Lengkapi email, nama pengguna & password (min 6 karakter)!';
         }
         break;
@@ -191,14 +224,9 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     if (!_validateCurrentStep()) return;
     setState(() => _loading = true);
-    try {
-      final authRes = await supabase.auth.signUp(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text,
-      );
-      if (authRes.user == null) throw Exception('Gagal membuat akun');
 
-      // PERBAIKAN: Tentukan mode dan kalori berdasarkan pilihan nyata dari UI user
+    try {
+      // Tentukan mode dan kalori berdasarkan pilihan user
       String mode = 'maintenance';
       int kaloriTarget = _maintenance;
 
@@ -210,8 +238,7 @@ class _RegisterPageState extends State<RegisterPage> {
         kaloriTarget = _surplus;
       }
 
-      await supabase.from('users').insert({
-        'id_user': authRes.user!.id,
+      final profileData = <String, dynamic>{
         'nama_lengkap': _firstNameCtrl.text.trim(),
         'berat': double.tryParse(_weightCtrl.text),
         'tinggi': double.tryParse(_heightCtrl.text),
@@ -223,12 +250,78 @@ class _RegisterPageState extends State<RegisterPage> {
         'tdee': _tdee,
         'target_mode': mode,
         'target_kalori': kaloriTarget,
-      });
+      };
 
-      if (mounted) {
+      if (widget.isGoogleSetup) {
+        final user = supabase.auth.currentUser;
+
+        if (user == null) {
+          throw Exception('Sesi Google tidak ditemukan. Silakan login ulang.');
+        }
+
+        await supabase.from('users').upsert({
+          'id_user': user.id,
+          ...profileData,
+        }, onConflict: 'id_user');
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil dilengkapi. Selamat datang!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+          (route) => false,
+        );
+
+        return;
+      }
+
+      final authRes = await supabase.auth.signUp(
+        email: _emailCtrl.text.trim(),
+        password: _passCtrl.text,
+        data: profileData,
+      );
+
+      final user = authRes.user;
+      if (user == null) throw Exception('Gagal membuat akun');
+
+      final hasActiveSession =
+          authRes.session != null || supabase.auth.currentSession != null;
+
+      if (hasActiveSession) {
+        await supabase.from('users').upsert({
+          'id_user': user.id,
+          ...profileData,
+        }, onConflict: 'id_user');
+
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Registrasi berhasil! Selamat datang di LangsingIn.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+          (route) => false,
+        );
+      } else {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Registrasi berhasil! Silakan cek email untuk verifikasi, lalu login.',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -284,7 +377,11 @@ class _RegisterPageState extends State<RegisterPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFFFE3C8), Color(0xFFEBD1B7), Color(0xFFFFF4EA)],
+            colors: [
+              Color(0xFFFFE3C8),
+              Color(0xFFEBD1B7),
+              Color(0xFFFFF4EA),
+            ],
           ),
         ),
         child: Stack(
@@ -362,12 +459,15 @@ class _RegisterPageState extends State<RegisterPage> {
             ],
           ),
           child: ClipOval(
-            child: Image.asset('assets/image/logo.png', fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/image/logo.png',
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         const SizedBox(height: 12),
         Text(
-          'Buat Akun',
+          widget.isGoogleSetup ? 'Lengkapi Profil' : 'Buat Akun',
           style: GoogleFonts.spirax(
             fontSize: 34,
             fontWeight: FontWeight.bold,
@@ -376,7 +476,9 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Lengkapi data singkat untuk rekomendasi kalori harianmu.',
+          widget.isGoogleSetup
+              ? 'Lengkapi data tubuh agar rekomendasi kalori harianmu akurat.'
+              : 'Lengkapi data singkat untuk rekomendasi kalori harianmu.',
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 13,
@@ -425,9 +527,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              onPressed: _loading
-                  ? null
-                  : (_currentStep == 6 ? _register : _nextStep),
+              onPressed: _loading ? null : (_currentStep == _lastStep ? _register : _nextStep),
               child: _loading
                   ? const SizedBox(
                       width: 22,
@@ -442,7 +542,9 @@ class _RegisterPageState extends State<RegisterPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _currentStep == 6 ? 'Daftar Sekarang' : 'Lanjut',
+                          _currentStep == _lastStep
+                              ? (widget.isGoogleSetup ? 'Simpan Profil' : 'Daftar Sekarang')
+                              : 'Lanjut',
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
@@ -451,7 +553,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         const SizedBox(width: 8),
                         Icon(
-                          _currentStep == 6
+                          _currentStep == _lastStep
                               ? Icons.check_circle_outline_rounded
                               : Icons.arrow_forward_rounded,
                           size: 20,
@@ -460,7 +562,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
             ),
           ),
-          if (_currentStep == 6) ...[
+          if (!widget.isGoogleSetup && _currentStep == 6) ...[
             const SizedBox(height: 14),
             Wrap(
               alignment: WrapAlignment.center,
@@ -524,12 +626,10 @@ class _RegisterPageState extends State<RegisterPage> {
           decoration: BoxDecoration(
             color: const Color(0xFFFFF0E3),
             borderRadius: BorderRadius.circular(99),
-            border: Border.all(
-              color: const Color(0xFFFF7C36).withOpacity(0.16),
-            ),
+            border: Border.all(color: const Color(0xFFFF7C36).withOpacity(0.16)),
           ),
           child: Text(
-            'Langkah ${_currentStep + 1} dari 7',
+            'Langkah ${_currentStep + 1} dari $_stepCount',
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -568,7 +668,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ClipRRect(
           borderRadius: BorderRadius.circular(99),
           child: LinearProgressIndicator(
-            value: (_currentStep + 1) / 7,
+            value: (_currentStep + 1) / _stepCount,
             minHeight: 9,
             backgroundColor: const Color(0xFFF1E5D8),
             valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF7C36)),
@@ -577,7 +677,7 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(7, (index) {
+          children: List.generate(_stepCount, (index) {
             final isActive = index <= _currentStep;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 220),
@@ -612,7 +712,7 @@ class _RegisterPageState extends State<RegisterPage> {
       case 5:
         return _buildCalorieResultStep();
       case 6:
-        return _buildFinalFormStep();
+        return widget.isGoogleSetup ? const SizedBox.shrink() : _buildFinalFormStep();
       default:
         return const SizedBox.shrink();
     }
@@ -697,8 +797,7 @@ class _RegisterPageState extends State<RegisterPage> {
       const SizedBox(height: 8),
       _infoPill(
         icon: Icons.info_outline_rounded,
-        text:
-            'Gunakan angka saja, contoh: 170 untuk tinggi dan 65 untuk berat.',
+        text: 'Gunakan angka saja, contoh: 170 untuk tinggi dan 65 untuk berat.',
       ),
     ]);
   }
@@ -731,16 +830,11 @@ class _RegisterPageState extends State<RegisterPage> {
           decoration: _fieldBoxDecoration(),
           child: Row(
             children: [
-              const Icon(
-                Icons.calendar_month_rounded,
-                color: Color(0xFFE95D14),
-              ),
+              const Icon(Icons.calendar_month_rounded, color: Color(0xFFE95D14)),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _birthDateCtrl.text.isEmpty
-                      ? 'Pilih tanggal lahir'
-                      : _birthDateCtrl.text,
+                  _birthDateCtrl.text.isEmpty ? 'Pilih tanggal lahir' : _birthDateCtrl.text,
                   style: GoogleFonts.inter(
                     color: _birthDateCtrl.text.isEmpty
                         ? Colors.black.withOpacity(0.42)
@@ -841,9 +935,7 @@ class _RegisterPageState extends State<RegisterPage> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFFFFF0E3)
-                : const Color(0xFFF8F1EA),
+            color: isSelected ? const Color(0xFFFFF0E3) : const Color(0xFFF8F1EA),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: isSelected
@@ -871,9 +963,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  isSelected
-                      ? Icons.check_rounded
-                      : Icons.directions_walk_rounded,
+                  isSelected ? Icons.check_rounded : Icons.directions_walk_rounded,
                   size: 19,
                   color: isSelected ? Colors.white : const Color(0xFFE95D14),
                 ),
@@ -973,9 +1063,13 @@ class _RegisterPageState extends State<RegisterPage> {
     return _cardForm([
       Row(
         children: [
-          Expanded(child: _metricMiniCard('BMI', _bmi.toStringAsFixed(1))),
+          Expanded(
+            child: _metricMiniCard('BMI', _bmi.toStringAsFixed(1)),
+          ),
           const SizedBox(width: 10),
-          Expanded(child: _metricMiniCard('BMR', '${_bmr.toStringAsFixed(0)}')),
+          Expanded(
+            child: _metricMiniCard('BMR', '${_bmr.toStringAsFixed(0)}'),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: _metricMiniCard('TDEE', '${_tdee.toStringAsFixed(0)}'),
@@ -991,8 +1085,7 @@ class _RegisterPageState extends State<RegisterPage> {
       const SizedBox(height: 16),
       _infoPill(
         icon: Icons.tips_and_updates_outlined,
-        text:
-            'Angka ini adalah rekomendasi awal. Kamu tetap bisa menyesuaikan target sesuai progres.',
+        text: 'Angka ini adalah rekomendasi awal. Kamu tetap bisa menyesuaikan target sesuai progres.',
       ),
     ]);
   }
@@ -1033,32 +1126,30 @@ class _RegisterPageState extends State<RegisterPage> {
           fontWeight: FontWeight.w600,
         ),
         cursorColor: const Color(0xFFFF7C36),
-        decoration:
-            _inputDecoration(
-              label: 'Kata sandi',
-              icon: Icons.lock_outline_rounded,
-            ).copyWith(
-              suffixIcon: IconButton(
-                onPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                },
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  color: Colors.black.withOpacity(0.45),
-                ),
-              ),
+        decoration: _inputDecoration(
+          label: 'Kata sandi',
+          icon: Icons.lock_outline_rounded,
+        ).copyWith(
+          suffixIcon: IconButton(
+            onPressed: () {
+              setState(() {
+                _obscurePassword = !_obscurePassword;
+              });
+            },
+            icon: Icon(
+              _obscurePassword
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              color: Colors.black.withOpacity(0.45),
             ),
+          ),
+        ),
         obscureText: _obscurePassword,
       ),
       const SizedBox(height: 10),
       _infoPill(
         icon: Icons.shield_outlined,
-        text:
-            'Minimal 6 karakter. Gunakan kombinasi huruf dan angka agar lebih aman.',
+        text: 'Minimal 6 karakter. Gunakan kombinasi huruf dan angka agar lebih aman.',
       ),
     ]);
   }
@@ -1095,7 +1186,10 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _infoPill({required IconData icon, required String text}) {
+  Widget _infoPill({
+    required IconData icon,
+    required String text,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
