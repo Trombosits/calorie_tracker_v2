@@ -1,5 +1,5 @@
 import 'package:calorie_tracker_v2/auth_service.dart';
-import 'package:calorie_tracker_v2/dashboard.dart';
+import 'package:calorie_tracker_v2/navbar.dart';
 import 'package:calorie_tracker_v2/performance.dart';
 import 'package:calorie_tracker_v2/register.dart';
 import 'package:flutter/foundation.dart';
@@ -55,18 +55,10 @@ class _LoginPageState extends State<LoginPage> {
       perf.lap('AuthService.login');
 
       if (res.user != null && mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (_) => const DashboardPage(
-              totalTargetKalori: 2000,
-              totalKaloriMasuk: 0,
-              totalKaloriKeluar: 0,
-              protein: 0,
-              karbohidrat: 0,
-              lemak: 0,
-            ),
-          ),
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+          (route) => false,
         );
 
         perf.lap('navigate');
@@ -118,18 +110,10 @@ class _LoginPageState extends State<LoginPage> {
       perf.lap('AuthService.signInWithGoogle');
 
       if (res.user != null && mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (_) => const DashboardPage(
-              totalTargetKalori: 2000,
-              totalKaloriMasuk: 0,
-              totalKaloriKeluar: 0,
-              protein: 0,
-              karbohidrat: 0,
-              lemak: 0,
-            ),
-          ),
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+          (route) => false,
         );
 
         perf.lap('navigate');

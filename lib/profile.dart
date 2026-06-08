@@ -360,6 +360,8 @@ class _ProfilePageState extends State<ProfilePage> {
       {'name': 'Hijau Zamrud', 'color': Colors.green},
     ];
 
+    Color selectedPreviewColor = themeNotifier.seedColor;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -369,9 +371,8 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return ListenableBuilder(
-          listenable: themeNotifier,
-          builder: (context, child) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
@@ -391,17 +392,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      Icon(Icons.palette, color: themeNotifier.seedColor, size: 28),
+                      Icon(Icons.palette, color: selectedPreviewColor, size: 28),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Ubah Tema Warna',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      const Expanded(
+                        child: Text(
+                          'Ubah Tema Warna',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Pilih warna tema yang kamu suka',
+                    'Pilih warna tema yang kamu suka. Fitur ubah warna akan tersedia segera.',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -410,27 +413,31 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 24),
                   GridView.builder(
                     shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(), 
+                    physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, 
-                      childAspectRatio: 2.8, 
-                      crossAxisSpacing: 12, 
-                      mainAxisSpacing: 12, 
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.8,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
                     ),
                     itemCount: themeColors.length,
                     itemBuilder: (context, index) {
                       final item = themeColors[index];
                       final Color color = item['color'];
                       final String name = item['name'];
-                      
-                      bool isSelected = themeNotifier.seedColor == color;
+
+                      final bool isSelected = selectedPreviewColor == color;
 
                       return GestureDetector(
-                        onTap: () => themeNotifier.updateSeedColor(color),
+                        onTap: () {
+                          setModalState(() {
+                            selectedPreviewColor = color;
+                          });
+                        },
                         child: Container(
                           decoration: BoxDecoration(
-                            color: isSelected 
-                                ? color.withValues(alpha: 0.1) 
+                            color: isSelected
+                                ? color.withValues(alpha: 0.1)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
@@ -473,19 +480,20 @@ class _ProfilePageState extends State<ProfilePage> {
                   SizedBox(
                     width: double.infinity,
                     height: 50,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx),
+                    child: ElevatedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.lock_clock_outlined),
+                      label: const Text(
+                        'Coming Soon',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: themeNotifier.seedColor,
-                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[300],
+                        disabledForegroundColor: Colors.grey[700],
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 0,
-                      ),
-                      child: const Text(
-                        'Selesai',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -496,6 +504,130 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         );
       },
+    );
+  }
+
+  void _showGuideSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Row(
+                  children: [
+                    Icon(Icons.menu_book_outlined, color: _primaryColor, size: 28),
+                    SizedBox(width: 12),
+                    Text(
+                      'Panduan Penggunaan',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _guideItem(
+                  Icons.dashboard_outlined,
+                  'Dashboard',
+                  'Lihat ringkasan target kalori, kalori masuk, kalori keluar, dan makronutrien harian.',
+                ),
+                _guideItem(
+                  Icons.restaurant_menu_outlined,
+                  'Input Makanan',
+                  'Cari makanan, masukkan jumlah gram, lalu tekan Hitung untuk menambahkan kalori masuk.',
+                ),
+                _guideItem(
+                  Icons.directions_run_outlined,
+                  'Input Aktivitas',
+                  'Cari aktivitas, masukkan durasi menit, lalu tekan Hitung untuk mencatat kalori keluar.',
+                ),
+                _guideItem(
+                  Icons.person_outline,
+                  'Profil',
+                  'Ubah foto profil, lihat target kalori, dan atur target seperti maintenance, bulking, atau cutting.',
+                ),
+                _guideItem(
+                  Icons.calendar_today_outlined,
+                  'Tanggal Input',
+                  'Tanggal pada input mengikuti tanggal hari ini dan tidak bisa diedit manual agar data harian tetap konsisten.',
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Mengerti',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _guideItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: _primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: _primaryColor, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -607,9 +739,9 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           _divider(),
           _menuTile(
-            Icons.help_outline_rounded, 
-            'Bantuan', 
-            onTap: () => _comingSoon(),
+            Icons.menu_book_outlined,
+            'Panduan',
+            onTap: _showGuideSheet,
           ),
           _divider(),
           const SizedBox(height: 32),
@@ -646,9 +778,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _divider() => Divider(height: 0, thickness: .5, color: Colors.grey[200]);
 
-  void _comingSoon() => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coming soon!')),
-      );
 } 
 
 Widget _infoPill(String text, Color color) {

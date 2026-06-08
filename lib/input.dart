@@ -357,23 +357,33 @@ class _HalamanUtama extends State<HalamanUtama>
                             ],
                         ),
                         bottomNavigationBar: SafeArea(
+                            minimum: const EdgeInsets.only(bottom: 92),
                             child: Padding(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                                 child: SizedBox(
                                     width: double.infinity,
-                                    height: 48,
-                                    child: ElevatedButton(
+                                    height: 52,
+                                    child: ElevatedButton.icon(
                                         onPressed: _loadingfood ? null: _SimpanInsert,
+                                        icon: const Icon(Icons.calculate_rounded),
                                         style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color(0xffff7c36),
                                             foregroundColor: Colors.white,
+                                            elevation: 6,
                                             shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius: BorderRadius.circular(16),
                                             )
                                         ),
-                                        child: _loadingfood
-                                            ? const CircularProgressIndicator(color: Colors.white)
-                                            : const Text('Save'),
+                                        label: _loadingfood
+                                            ? const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                              )
+                                            : const Text(
+                                                'Hitung',
+                                                style: TextStyle(fontWeight: FontWeight.w700),
+                                              ),
                                     ),
                                 ),
                             )
@@ -387,7 +397,7 @@ class _HalamanUtama extends State<HalamanUtama>
             Widget _buildTabMakanan(){
                 return Scrollbar(
                     child: ListView(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 150),
                         children: [
                             Row(
                                 children: [
@@ -466,21 +476,15 @@ class _HalamanUtama extends State<HalamanUtama>
                                                             ),
                                                         ),
                                                         const SizedBox(width: 8),
-                                                        Expanded(flex: 2,
-                                                            child: InkWell(
-                                                                onTap: () async{
-                                                                    final pick = await showDatePicker(context: context, initialDate: it.tanggal ,
-                                                                    firstDate: DateTime.now().subtract(const Duration(days: 365)), 
-                                                                    lastDate: DateTime.now()
-                                                                    );
-                                                                    if(pick != null) setState(() =>
-                                                                        it.tanggal = pick
-                                                                    );
-                                                                },
-                                                                child: InputDecorator(
-                                                                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                                                                    child: Text('${it.tanggal.day}/${it.tanggal.month}/${it.tanggal.year}'),
+                                                        Expanded(
+                                                            flex: 2,
+                                                            child: InputDecorator(
+                                                                decoration: const InputDecoration(
+                                                                    labelText: 'Tanggal',
+                                                                    border: OutlineInputBorder(),
+                                                                    enabled: false,
                                                                 ),
+                                                                child: Text('${it.tanggal.day}/${it.tanggal.month}/${it.tanggal.year}'),
                                                             ),
                                                         ),
                                                         IconButton(onPressed: () => _HapusMakanan(i), icon: const Icon(Icons.delete, color: Colors.black,)),
@@ -498,7 +502,7 @@ class _HalamanUtama extends State<HalamanUtama>
             //Tab Aktivitas
             Widget _buildTabAktivitas(){
                 return Scrollbar(child: ListView(
-                        padding: const EdgeInsets.all(15),
+                        padding: const EdgeInsets.fromLTRB(15, 15, 15, 150),
                         children: [
                             Row(
                                 children: [
@@ -568,21 +572,16 @@ class _HalamanUtama extends State<HalamanUtama>
                                                                 ),
                                                             ),
                                                             const SizedBox(width: 8),
-                                                            Expanded(flex: 2, 
-                                                            child: InkWell(
-                                                                    onTap: () async{
-                                                                        final pick = await showDatePicker(context: context, initialDate: it.tanggal,
-                                                                         firstDate: DateTime.now().subtract(const Duration(days: 365)), lastDate: DateTime.now()
-                                                                        );
-                                                                        if(pick != null) setState(() =>
-                                                                            it.tanggal = pick
-                                                                        );
-                                                                    },
-                                                                    child: InputDecorator(
-                                                                        decoration: const InputDecoration(border: OutlineInputBorder()),
-                                                                        child: Text('${it.tanggal.day}/${it.tanggal.month}/${it.tanggal.year}'),
+                                                            Expanded(
+                                                                flex: 2,
+                                                                child: InputDecorator(
+                                                                    decoration: const InputDecoration(
+                                                                        labelText: 'Tanggal',
+                                                                        border: OutlineInputBorder(),
+                                                                        enabled: false,
                                                                     ),
-                                                                )
+                                                                    child: Text('${it.tanggal.day}/${it.tanggal.month}/${it.tanggal.year}'),
+                                                                ),
                                                             ),
                                                             IconButton(onPressed: () => _HapusAktivitas(i), icon: const Icon(Icons.delete, color: Colors.redAccent)),
                                                         ],
