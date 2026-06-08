@@ -5,8 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppColors {
   static const Color primary = Color(0xFF2B2D42);
-  static const Color targetLineColor = Colors.pink; // Warna garis target
-  static const Color intakeLineColor = Colors.cyan; // Warna garis asupan
+  static const Color targetLineColor = Colors.pink;
+  static const Color intakeLineColor = Colors.cyan;
 }
 
 class LaporanKaloriChart extends StatefulWidget {
@@ -20,8 +20,11 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
   final _supabase = Supabase.instance.client;
   
   bool _isLoading = true;
-  double _targetKalori = 2000.0; // Nilai default
-  List<double> _kaloriMingguan = List.filled(7, 0.0); // 7 Hari (Senin - Minggu)
+  bool _isLaporanMingguan = false; // Toggle: false = Harian, true = Mingguan
+  
+  double _targetKalori = 2000.0;
+  List<double> _kaloriHarian = List.filled(7, 0.0); // 7 Hari (Senin - Minggu)
+  List<double> _kaloriMingguan = List.filled(4, 0.0); // 4 Minggu kebelakangan
 
   @override
   void initState() {
@@ -36,7 +39,7 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
       final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      // 1. AMBIL TARGET KALORI DARI TABEL 'users'
+      // 1. AMBIL TARGET KALORI
       final userRow = await _supabase
           .from('users')
           .select('target_kalori')
@@ -47,34 +50,54 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
         _targetKalori = (userRow['target_kalori'] as num).toDouble();
       }
 
-      // 2. AMBIL DATA KONSUMSI MINGGU INI (Senin - Minggu)
+    
       final now = DateTime.now();
-      // Cari tanggal hari Senin minggu ini
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final endOfWeek = startOfWeek.add(const Duration(days: 6));
+   
+      final startOfThisWeek = now.subtract(Duration(days: now.weekday - 1)); 
+      final endOfThisWeek = startOfThisWeek.add(const Duration(days: 6, hours: 23, minutes: 59));
+      
 
-      // Asumsi: Kamu memiliki tabel 'makanan' dengan kolom 'tanggal' dan 'kalori'
-      // GANTI 'makanan' dan 'kalori' sesuai dengan nama tabel & kolom di databasemu!
+      final startOf4WeeksAgo = startOfThisWeek.subtract(const Duration(days: 21)); 
+
+
       final response = await _supabase
-          .from('makanan') 
-          .select('tanggal, kalori')
-          .eq('id_user', user.id)
-          .gte('tanggal', startOfWeek.toIso8601String())
-          .lte('tanggal', endOfWeek.toIso8601String());
+        .from('laporan_harian') // 1. UBAH DARI 'makanan' JADI 'laporan_harian'
+        .select('tanggal, total_kalori_in') // 2. UBAH NAMA KOLOM KALORI-NYA
+        .eq('id_user', user.id)
+        .gte('tanggal', startOf4WeeksAgo.toIso8601String())
+        .lte('tanggal', endOfThisWeek.toIso8601String());
 
-      // Reset list mingguan
-      List<double> tempKalori = List.filled(7, 0.0);
+ 
+      List<double> tempHarian = List.filled(7, 0.0);
+      List<double> tempMingguan = List.filled(4, 0.0);
 
-      // Kelompokkan kalori berdasarkan hari
+   
       for (var item in response) {
         final date = DateTime.parse(item['tanggal']);
-        final dayIndex = date.weekday - 1; // 0 = Senin, 6 = Minggu
-        final kalori = (item['kalori'] as num).toDouble();
-        
-        tempKalori[dayIndex] += kalori;
+        final kalori = (item['total_kalori_in'] as num).toDouble();
+
+      
+        if (date.isAfter(startOfThisWeek.subtract(const Duration(seconds: 1))) && 
+            date.isBefore(endOfThisWeek.add(const Duration(seconds: 1)))) {
+          final dayIndex = date.weekday - 1; 
+          tempHarian[dayIndex] += kalori;
+        }
+
+       
+        final differenceInDays = date.difference(startOf4WeeksAgo).inDays;
+        if (differenceInDays >= 0 && differenceInDays < 28) {
+          final weekIndex = differenceInDays ~/ 7; // 0, 1, 2, 3
+          tempMingguan[weekIndex] += kalori;
+        }
       }
 
-      _kaloriMingguan = tempKalori;
+
+      for (int i = 0; i < 4; i++) {
+        tempMingguan[i] = tempMingguan[i] / 7; 
+      }
+
+      _kaloriHarian = tempHarian;
+      _kaloriMingguan = tempMingguan;
 
     } catch (e) {
       debugPrint('Error fetch chart data: $e');
@@ -88,36 +111,41 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 1.23,
+      aspectRatio: 1.15,
       child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                const SizedBox(height: 20),
-                const Text(
-                  'Laporan Kalori Mingguan',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
+                const SizedBox(height: 10),
+                
+                // --- TOGGLE BUTTONS ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildToggleButton('Harian', !_isLaporanMingguan),
+                    const SizedBox(width: 12),
+                    _buildToggleButton('Mingguan', _isLaporanMingguan),
+                  ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
+                
+                // --- GRAFIK ---
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 16, left: 6),
                     child: LineChart(_mainChartData()),
                   ),
                 ),
-                // Legenda Keterangan Warna
+                const SizedBox(height: 12),
+                
+                // --- LEGENDA ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildLegend(AppColors.intakeLineColor, "Asupan Harian"),
+                    _buildLegend(AppColors.intakeLineColor, "Asupan Kalori"),
                     const SizedBox(width: 16),
-                    _buildLegend(AppColors.targetLineColor, "Target Kalori"),
+                    _buildLegend(AppColors.targetLineColor, "Target Harian"),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -126,22 +154,56 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
     );
   }
 
+  // Widget Butang Togol
+  Widget _buildToggleButton(String title, bool isSelected) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _isLaporanMingguan = title == 'Mingguan';
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.primary),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : AppColors.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLegend(Color color, String label) {
     return Row(
       children: [
-        Container(width: 12, height: 12, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Container(
+          width: 12, 
+          height: 12, 
+          decoration: BoxDecoration(
+            color: color, // Pindahkan color ke dalam decoration
+            shape: BoxShape.circle, // Masukkan shape ke dalam decoration
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
       ],
     );
   }
 
   // --- CHART CONFIGURATION ---
-
   LineChartData _mainChartData() {
-    // Cari nilai maksimal untuk sumbu Y agar grafik proporsional
-    double maxKaloriIntake = _kaloriMingguan.reduce(max);
-    double maxY = max(maxKaloriIntake, _targetKalori) + 500; // Tambah margin atas 500 kalori
+    // Tentukan data mana yang digunakan (Harian atau Mingguan)
+    List<double> currentData = _isLaporanMingguan ? _kaloriMingguan : _kaloriHarian;
+    
+    double maxKaloriIntake = currentData.isEmpty ? 0 : currentData.reduce(max);
+    double maxY = max(maxKaloriIntake, _targetKalori) + 500;
 
     return LineChartData(
       gridData: const FlGridData(show: true, drawVerticalLine: false),
@@ -157,7 +219,7 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            interval: 500, // Tampilkan angka setiap kelipatan 500
+            interval: 500,
             reservedSize: 42,
             getTitlesWidget: leftTitleWidgets,
           ),
@@ -175,26 +237,26 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
         ),
       ),
       minX: 0,
-      maxX: 6, // 0 sampai 6 (Senin - Minggu)
+      maxX: _isLaporanMingguan ? 3 : 6, // Jika mingguan (0-3), jika harian (0-6)
       minY: 0,
       maxY: maxY,
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
-          getTooltipColor: (touchedSpot) => Colors.blueGrey.withValues(alpha: 0.8),
+          getTooltipColor: (touchedSpot) => Colors.blueGrey.withValues(alpha: 0.9),
         ),
       ),
       lineBarsData: [
-        _intakeLineData(),
+        _intakeLineData(currentData),
         _targetLineData(),
       ],
     );
   }
 
-  // Garis 1: Asupan Kalori Harian
-  LineChartBarData _intakeLineData() {
+  // Garis 1: Asupan Kalori (Harian / Mingguan)
+  LineChartBarData _intakeLineData(List<double> dataPoints) {
     List<FlSpot> spots = [];
-    for (int i = 0; i < 7; i++) {
-      spots.add(FlSpot(i.toDouble(), _kaloriMingguan[i]));
+    for (int i = 0; i < dataPoints.length; i++) {
+      spots.add(FlSpot(i.toDouble(), dataPoints[i]));
     }
 
     return LineChartBarData(
@@ -211,43 +273,53 @@ class _LaporanKaloriChartState extends State<LaporanKaloriChart> {
     );
   }
 
-  // Garis 2: Target Kalori (Garis Lurus)
+  // Garis 2: Target Kalori (Garis Lurus Putus-Putus)
   LineChartBarData _targetLineData() {
     return LineChartBarData(
       isCurved: false,
       color: AppColors.targetLineColor,
-      barWidth: 3,
+      barWidth: 2,
       isStrokeCapRound: false,
-      dotData: const FlDotData(show: false), // Sembunyikan titik agar jadi garis mulus
-      dashArray: [5, 5], // Buat garis putus-putus
+      dotData: const FlDotData(show: false),
+      dashArray: [6, 4],
       spots: [
-        FlSpot(0, _targetKalori), // Titik awal (Senin)
-        FlSpot(6, _targetKalori), // Titik akhir (Minggu)
+        FlSpot(0, _targetKalori),
+        FlSpot(_isLaporanMingguan ? 3 : 6, _targetKalori),
       ],
     );
   }
 
-  // Sumbu X (Hari dalam seminggu)
+  // Sumbu X (Dinamik berdasarkan Togol)
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
-    String text;
-    switch (value.toInt()) {
-      case 0: text = 'Sen'; break;
-      case 1: text = 'Sel'; break;
-      case 2: text = 'Rab'; break;
-      case 3: text = 'Kam'; break;
-      case 4: text = 'Jum'; break;
-      case 5: text = 'Sab'; break;
-      case 6: text = 'Min'; break;
-      default: text = '';
+    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 11);
+    String text = '';
+    
+    if (_isLaporanMingguan) {
+      // Label untuk Mingguan
+      switch (value.toInt()) {
+        case 0: text = 'Minggu 1'; break;
+        case 1: text = 'Minggu 2'; break;
+        case 2: text = 'Minggu 3'; break;
+        case 3: text = 'Minggu 4'; break; // Minggu Semasa
+      }
+    } else {
+      // Label untuk Harian
+      switch (value.toInt()) {
+        case 0: text = 'Senin'; break;
+        case 1: text = 'Selasa'; break;
+        case 2: text = 'Rabu'; break;
+        case 3: text = 'Kamis'; break;
+        case 4: text = 'Jumat'; break;
+        case 5: text = 'Sabtu'; break;
+        case 6: text = 'Minggu'; break;
+      }
     }
     return SideTitleWidget(meta: meta, child: Text(text, style: style));
   }
 
-  // Sumbu Y (Jumlah Kalori)
+  // Sumbu Y
   Widget leftTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 10);
-    // Hanya tampilkan jika valuenya kelipatan 500 (biar grafik ga sumpek)
+    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.grey);
     if (value % 500 != 0 || value == 0) return Container();
     
     return SideTitleWidget(
